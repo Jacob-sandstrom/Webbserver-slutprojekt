@@ -4,5 +4,20 @@ html
         title Forum
         link rel="stylesheet" href="/css/main.css"/
     body
+
+        header
+            a href="/" Home
+
+            - if !session[:user_id]
+                a href="/users/login" login
+                a href="/users/new" create account
+            - else
+                div class="usernamebox"
+                    p logged in as: 
+                    p =@username
+                a href="/users/logout" logout
+                a href="/posts/new" create post
+
+        / h3 =@username
         == yield
         footer © Forum 2019

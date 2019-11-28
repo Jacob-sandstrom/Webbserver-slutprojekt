@@ -1,0 +1,26 @@
+body{
+    background-color: #000;
+    color: #fff;
+}
+
+h1, h2, h3, p, a{
+    color: white;
+}
+
+a, p{
+    margin: 5px;
+}
+
+header{
+    display: flex;
+}
+
+.usernamebox{
+    display: flex;
+}
+
+article{
+    border: 1px white solid;
+    margin: 5px;
+    text-decoration: none;
+}

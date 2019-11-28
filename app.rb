@@ -5,26 +5,39 @@ class App < Sinatra::Base
 
 	enable :sessions
 
-	before do 
+	before "/*" do |path|
+		p path
 		p "#########"
 		p session
 		p "#########"
+		
+		@username = Users.get_name_from_id(session[:user_id])
 
+		
+		if !session[:user_id]
+			if path.include? "comments/new"
+				redirect "/users/login"
+			end
+		end
 	end
+
+	
 
 	before '/admin*' do 
 		# check if admin and redirect
 	end
+
+
 
 	def login(id)
         session[:user_id] = id
 	end
 	
 	get '/' do
-		session[:user_id]? (@username = Users.get_name_from_id(session[:user_id])) : (@username = "Not logged in")
+		@posts = Posts.top
 		slim :index
 	end
-
+ 
 	
 	get '/users/new/?' do
 		slim :'users/new'
@@ -54,6 +67,10 @@ class App < Sinatra::Base
 	get '/users/login' do
 		slim :"users/login"
 	end
+	get '/users/logout' do
+		session.delete(:user_id)
+		redirect '/'
+	end
 
 	post "/users/login" do 
 		username = params["username"]
@@ -64,5 +81,44 @@ class App < Sinatra::Base
 		redirect "/users/"
 	end
 
+	get "/posts/new" do
+		slim :"posts/new"
+	end
+
+	post "/posts/new" do
+		title = params["Title"]
+		content = params["content"]
+		creation_time = Time.now.to_s
+		user_id = session[:user_id]
+		Posts.create(title, content, creation_time, user_id)
+		redirect "/"
+	end
+
+	get "/posts/show/:id" do 
+		id = params["id"]
+		@post_data = Posts.get_with_comments_by_id(id)
+
+		@post = @post_data[0]
+
+
+		slim :"posts/show"
+	end
+	
+	get "/comments/new/:post_id/:comment_id" do
+		@post_id = params["post_id"]
+		@comment_id = params["comment_id"] 
+		@comment_id = "" if @comment_id == nil
+		slim :"comments/new"
+	end
+	
+	post "/comments/new/:post_id/:comment_id" do
+		post_id = params["post_id"]
+		comment_id = params["comment_id"] 
+		content = params["content"]
+
+		Comments.create(content, Time.now.to_s, session[:user_id], post_id, comment_id)
+		redirect "/posts/show/#{post_id}"
+
+	end
 	
 end

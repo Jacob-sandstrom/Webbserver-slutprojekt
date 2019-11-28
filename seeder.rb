@@ -39,34 +39,26 @@ class Seeder
             CREATE TABLE "posts" (
                 "id"	INTEGER,
                 "title"	TEXT NOT NULL,
-                "contence"	TEXT,
+                "content"	TEXT,
                 "votes"	INTEGER NOT NULL DEFAULT 0,
                 "creation_time"	TEXT NOT NULL,
                 "user_id"	INTEGER NOT NULL,
                 PRIMARY KEY("id")
-            );
-        SQL
-
+                );
+                SQL
+            
         db.execute <<-SQL
             CREATE TABLE "comments" (
                 "id"	INTEGER,
-                "contence"	TEXT NOT NULL,
+                "content"	TEXT NOT NULL,
                 "post_id"	INTEGER NOT NULL,
                 "user_id"	INTEGER NOT NULL,
+                "creation_time"	TEXT NOT NULL,,
+                "reply_to_id"	INTEGER,
                 PRIMARY KEY("id")
-            );
-        SQL
-
-        db.execute <<-SQL
-            CREATE TABLE "comment_comments" (
-                "id"	INTEGER,
-                "contence"	TEXT NOT NULL,
-                "post_id"	INTEGER NOT NULL,
-                "comment_id"	INTEGER NOT NULL,
-                "user_id"	INTEGER NOT NULL,
-                PRIMARY KEY("id")
-            );
-        SQL
+                );
+                SQL
+                
 
         db.execute <<-SQL
             CREATE TABLE "tags" (
@@ -82,6 +74,14 @@ class Seeder
                 "tag_id"	INTEGER NOT NULL
             );
         SQL
+
+        db.execute <<-SQL
+        CREATE TABLE "votes" (
+            "user_id"	INTEGER NOT NULL,
+            "post_id"	INTEGER NOT NULL,
+            "score"	INTEGER NOT NULL
+        )
+        SQL
     end
 
     def self.populate_tables(db)
@@ -94,31 +94,31 @@ class Seeder
         ]
             
         posts = [
-            {title: "Coke 33cl", contence: "hello", votes: 25, user_id: 1, creation_time: "time"},
-            {title: "Fanta 33cl", contence: "hello", votes: 25, user_id: 2, creation_time: "time"},
-            {title: "Sprite 33cl", contence: "hello", votes: 25, user_id: 2, creation_time: "time"},
-            {title: "Salta Nappar", contence: "hello", votes: 15, user_id: 3, creation_time: "time"},
-            {title: "Colanappar", contence: "hello", votes: 15, user_id: 3, creation_time: "time"},
-            {title: "Ahlgrens Bilar", contence: "hello", votes: 15, user_id: 4, creation_time: "time"},
-            {title: "Snickers", contence: "hello", votes: 10, user_id: 4, creation_time: "time"},
-            {title: "Twix", contence: "hello", votes: 10, user_id: 4, creation_time: "time"},
-            {title: "Mars", contence: "hello", votes: 10, user_id: 4, creation_time: "time"}  
+            {title: "Coke 33cl", content: "hello", votes: 25, user_id: 1, creation_time: "time"},
+            {title: "Fanta 33cl", content: "hello", votes: 25, user_id: 2, creation_time: "time"},
+            {title: "Sprite 33cl", content: "hello", votes: 25, user_id: 2, creation_time: "time"},
+            {title: "Salta Nappar", content: "hello", votes: 15, user_id: 3, creation_time: "time"},
+            {title: "Colanappar", content: "hello", votes: 15, user_id: 3, creation_time: "time"},
+            {title: "Ahlgrens Bilar", content: "hello", votes: 15, user_id: 4, creation_time: "time"},
+            {title: "Snickers", content: "hello", votes: 10, user_id: 4, creation_time: "time"},
+            {title: "Twix", content: "hello", votes: 10, user_id: 4, creation_time: "time"},
+            {title: "Mars", content: "hello", votes: 10, user_id: 4, creation_time: "time"}  
         ]
 
         comments = [
-            {contence: "Origovägen 4", post_id: 1, user_id: 1},
-            {contence: "Sven Hultins Gata 9C", post_id: 1, user_id: 1},
-            {contence: "Röntgenvägen 9", post_id: 2, user_id: 2},
-            {contence: "Grillkorvsgränd 3", post_id: 5, user_id: 4},
-            {contence: "Wavrinskys plats", post_id: 3, user_id: 2}
+            {content: "Origovägen 4", post_id: 1, user_id: 1},
+            {content: "Sven Hultins Gata 9C", post_id: 1, user_id: 1},
+            {content: "Röntgenvägen 9", post_id: 2, user_id: 2},
+            {content: "Grillkorvsgränd 3", post_id: 5, user_id: 4},
+            {content: "Wavrinskys plats", post_id: 3, user_id: 2}
         ]
 
         comment_comments = [
-            {contence: "vägen 4", post_id: 1, comment_id: 1, user_id: 1},
-            {contence: "Sven Hultins Gata 9C", post_id: 1, comment_id: 2, user_id: 1},
-            {contence: "Röntgenvägen 9", post_id: 2, comment_id: 1, user_id: 1},
-            {contence: "Grillkorvsgränd 3", post_id: 5, comment_id: 1, user_id: 3},
-            {contence: "Wavrinskys plats", post_id: 3, comment_id: 1, user_id: 2}
+            {content: "vägen 4", post_id: 1, comment_id: 1, user_id: 1},
+            {content: "Sven Hultins Gata 9C", post_id: 1, comment_id: 2, user_id: 1},
+            {content: "Röntgenvägen 9", post_id: 2, comment_id: 1, user_id: 1},
+            {content: "Grillkorvsgränd 3", post_id: 5, comment_id: 1, user_id: 3},
+            {content: "Wavrinskys plats", post_id: 3, comment_id: 1, user_id: 2}
         ]
 
         taggings = [
@@ -144,15 +144,15 @@ class Seeder
         end        
 
         posts.each do |post| 
-            db.execute("INSERT INTO posts (title, votes, user_id, contence, creation_time) VALUES(?,?,?,?,?)", post[:title], post[:votes], post[:user_id], post[:contence], post[:creation_time])
+            db.execute("INSERT INTO posts (title, votes, user_id, content, creation_time) VALUES(?,?,?,?,?)", post[:title], post[:votes], post[:user_id], post[:content], post[:creation_time])
         end
 
         comments.each do |m| 
-            db.execute("INSERT INTO comments (contence, post_id, user_id) VALUES(?,?,?)", m[:contence], m[:post_id], m[:user_id])
+            db.execute("INSERT INTO comments (content, post_id, user_id) VALUES(?,?,?)", m[:content], m[:post_id], m[:user_id])
         end
         
         comment_comments.each do |m| 
-            db.execute("INSERT INTO comment_comments (contence, post_id, comment_id, user_id) VALUES(?,?,?,?)", m[:contence], m[:post_id], m[:comment_id], m[:user_id])
+            db.execute("INSERT INTO comment_comments (content, post_id, comment_id, user_id) VALUES(?,?,?,?)", m[:content], m[:post_id], m[:comment_id], m[:user_id])
         end
         
         taggings.each do |m| 

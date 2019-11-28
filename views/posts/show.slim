@@ -1,0 +1,11 @@
+
+h1 =@post["p.title"]
+
+p =@post["p.content"]
+
+- if session[:user_id]
+    a href="/comments/new/#{@post['p.id']}/nil" comment
+- else
+    a href="/users/login" login to comment
+
+h3 Comments

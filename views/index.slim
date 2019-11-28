@@ -1,5 +1,8 @@
 
-
-a href="users/login" login
-
-h1 =@username
+- @posts.each do |post|
+    article
+        a href="/posts/show/#{post['id']}" 
+            h1 =post["title"]
+            div class="votebox"
+                h3 votes:
+                h3 =post["votes"]

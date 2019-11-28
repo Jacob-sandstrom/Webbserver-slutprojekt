@@ -8,7 +8,7 @@ class DbHandler
         @db.results_as_hash = true
         return @db
         # d = @db.execute("select name from sqlite_master where type='table'")
-        # p array_of_single_object_arrays_to_array_of_contence(d)
+        # p array_of_single_object_arrays_to_array_of_content(d)
     end
 
 
@@ -17,11 +17,11 @@ class DbHandler
     # - array_in an array which contains single object arrays
     #
     # examples
-    #   array_of_single_object_arrays_to_array_of_contence([["hej"], ["do"]]) 
+    #   array_of_single_object_arrays_to_array_of_content([["hej"], ["do"]]) 
     #   # => ["hej", "do"]
     #
     # returns the new array
-    def self.array_of_single_object_arrays_to_array_of_contence(array_in)
+    def self.array_of_single_object_arrays_to_array_of_content(array_in)
         array_out = []
         array_in.each do |x|
             array_out << x[0]
@@ -48,7 +48,7 @@ class DbHandler
         else
             join_string = " "
             joins.each do |join|
-                join_string += join[0].to_s + " JOIN " + join[1].to_s + " ON " + join[2].to_s + " = " + join[3].to_s
+                join_string += " " + join[0].to_s + " JOIN " + join[1].to_s + " ON " + join[2].to_s + " = " + join[3].to_s
             end
             return join_string
         end
@@ -69,6 +69,19 @@ class DbHandler
         end
     end
 
+    def self.order(orders)
+        if !orders
+            return ""
+        else
+            order_str = " ORDER BY "
+            orders.each_with_index do |order, i|
+                order_str += ", " if i > 0
+                order_str += order[0] + " " + order[1]
+            end
+
+            return order_str
+        end 
+    end
     
     # does a select query from the database
     #
@@ -78,10 +91,10 @@ class DbHandler
     # - table   the table to select from
     #
     # returns the sqlite select hash/array
-    def self.get(select = "*", joins = nil, wheres = nil, table = self.name.to_s.downcase)
+    def self.get(select = "*", joins = nil, wheres = nil, orders = nil, table = self.name.to_s.downcase)
         # table = self.name.to_s.downcase 
         where_string, where_values = where(wheres)
-        return connect.execute("SELECT #{select} FROM #{table} #{join(joins)} #{where_string}", where_values)
+        return connect.execute("SELECT #{select} FROM #{table} #{join(joins)} #{where_string} #{order(orders)}", where_values)
 
     end
 
@@ -151,8 +164,9 @@ class DbHandler
     end
 
 
+
     def self.get_row_where(id1, id2)
-        get("*", nil, [[id1, id2]])
+        get("*", nil, [[id1, id2]])[0]
     end
     
     def self.get_specific(select, id1, id2)
@@ -162,6 +176,10 @@ class DbHandler
         else
             val = nil
         end
+    end
+
+    def self.get_by_id(id)
+        get_row_where("id", id)
     end
 end 
 
@@ -210,15 +228,44 @@ end
 class Tags < DbHandler
 end
 class Comments < DbHandler
+
+    def self.get_all_for_post(id)
+        get("*", nil, [["post_id", id]])
+    end
+
+    def self.create(content, creation_time, user_id, post_id, reply_to_id)
+        hash = {content: content, creation_time: creation_time, user_id: user_id, post_id: post_id, reply_to_id: reply_to_id}
+        insert(hash)
+    end
+    
+
 end
-class Comment_comments < DbHandler
-end
+
 class Posts < DbHandler
+
+    def self.top
+        get("*", nil, nil, [["votes", "DESC"]])
+    end
+    def self.bottom
+        get("*", nil, nil, [["votes", "ASC"]])
+    end
+
+    def self.create(title, content, creation_time, user_id)
+        hash = {title: title, content: content, creation_time: creation_time, user_id: user_id}
+        insert(hash)
+    end
+
+    def self.get_blank_with_tags_where(select, where1, where2)
+        get(select, [["inner", "taggings", "posts.id", "taggings.post_id"],["inner", "tags", "taggings.tag_id", "tags.id"]], [[where1, where2]])
+    end
+
+    def self.get_with_comments_by_id(id)
+        get("posts.id AS 'p.id', posts.title AS 'p.title', posts.content AS 'p.content', posts.votes AS 'p.votes', posts.creation_time AS 'p.creation_time', posts.user_id AS 'p.user_id', comments.id AS 'c.id', comments.content AS 'c.content', comments.post_id AS 'c.post_id', comments.user_id AS 'c.user_id', comments.creation_time AS 'c.creation_time'", [["inner", "comments", "posts.id", "comments.post_id"]],[["posts.id", id]])
+    end
+
 end
 class Taggings < DbHandler
 end
 
-# Users.get_id_from_name("Jacb")
-# p Users.get("*", nil, [["id", 1]])
-# Users.update({name: "Admin", is_admin: 1}, [["id", 1]])
-# p Posts.get("*", [["left", "comments", "posts.id", "post_id"]], [["posts.id", 1]])
+# p Comments.get_all_for_post(2)
+p Posts.get_with_comments_by_id(7)[0]
