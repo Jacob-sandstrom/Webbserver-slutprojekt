@@ -268,4 +268,13 @@ class Taggings < DbHandler
 end
 
 # p Comments.get_all_for_post(2)
-p Posts.get_with_comments_by_id(7)[0]
+p Posts.get_with_comments_by_id(7)
+
+def sort_comments(comments, ref_to_id)
+
+    comments.each_with_index do |comment, i|
+        
+    end
+
+end
+
