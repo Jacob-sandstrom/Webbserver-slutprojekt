@@ -3,4 +3,9 @@
 form action="/posts/new" method='post'
     input type='text' class='title_input' name='Title' placeholder="Title"
     input type='text' class='content_input' name='content' placeholder="content"
+
+    h3 tags: 
+    - @tags.each do |tag|
+        input class="tagbox" type="checkbox" name="#{tag[0]}" value="#{tag[1]}" #{tag[0]}
+
     button type='submit' create

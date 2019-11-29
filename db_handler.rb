@@ -82,6 +82,14 @@ class DbHandler
             return order_str
         end 
     end
+
+    def self.limits(limit)
+        if limit
+            return " Limit #{limit}"
+        else
+            return ""
+        end
+    end 
     
     # does a select query from the database
     #
@@ -91,10 +99,10 @@ class DbHandler
     # - table   the table to select from
     #
     # returns the sqlite select hash/array
-    def self.get(select = "*", joins = nil, wheres = nil, orders = nil, table = self.name.to_s.downcase)
+    def self.get(select = "*", joins = nil, wheres = nil, orders = nil, limit = nil, table = self.name.to_s.downcase)
         # table = self.name.to_s.downcase 
         where_string, where_values = where(wheres)
-        return connect.execute("SELECT #{select} FROM #{table} #{join(joins)} #{where_string} #{order(orders)}", where_values)
+        return connect.execute("SELECT #{select} FROM #{table} #{join(joins)} #{where_string} #{order(orders)} #{limits(limit)}", where_values)
 
     end
 
@@ -226,6 +234,19 @@ class Users < DbHandler
 
 end
 class Tags < DbHandler
+
+    def self.get_all
+        tags = get("name, id")
+        tags.each_with_index do |tag, i|
+            t = []
+            tag.to_a.each do |x|
+                t << x[1]
+            end
+            tags[i] = t
+        end
+        return tags
+    end
+
 end
 class Comments < DbHandler
 
@@ -233,7 +254,7 @@ class Comments < DbHandler
         get("*", nil, [["post_id", id]])
     end
 
-    def self.create(content, creation_time, user_id, post_id, reply_to_id)
+    def self.create(content, creation_time, user_id, post_id, reply_to_id = 0)
         hash = {content: content, creation_time: creation_time, user_id: user_id, post_id: post_id, reply_to_id: reply_to_id}
         insert(hash)
     end
@@ -243,6 +264,25 @@ end
 
 class Posts < DbHandler
 
+    def self.sort_comments(comments, reply_to_id)
+        sorted_comments = []
+        remaining_comments = []
+    
+        comments.each_with_index do |comment, i|
+            if comment["c.reply_to_id"] == reply_to_id
+                sorted_comments << comment   
+            else
+                remaining_comments << comment
+            end  
+        end
+    
+        sorted_comments.each_with_index do |comment, i|
+            comment["comments"] = sort_comments(remaining_comments, comment["c.id"])
+        end
+    
+        return sorted_comments
+    end
+
     def self.top
         get("*", nil, nil, [["votes", "DESC"]])
     end
@@ -250,31 +290,63 @@ class Posts < DbHandler
         get("*", nil, nil, [["votes", "ASC"]])
     end
 
-    def self.create(title, content, creation_time, user_id)
+    def self.get_last_id()
+        get("id", nil, nil, [["id", "DESC"]], 1)[0]["id"]
+    end
+
+    def self.create(title, content, creation_time, user_id, tags)
         hash = {title: title, content: content, creation_time: creation_time, user_id: user_id}
+        
+        connect.transaction
         insert(hash)
+
+        post_id = get_last_id()
+        connect.commit
+
+        Taggings.add(tags, post_id)
+
+
     end
 
     def self.get_blank_with_tags_where(select, where1, where2)
         get(select, [["inner", "taggings", "posts.id", "taggings.post_id"],["inner", "tags", "taggings.tag_id", "tags.id"]], [[where1, where2]])
     end
 
-    def self.get_with_comments_by_id(id)
-        get("posts.id AS 'p.id', posts.title AS 'p.title', posts.content AS 'p.content', posts.votes AS 'p.votes', posts.creation_time AS 'p.creation_time', posts.user_id AS 'p.user_id', comments.id AS 'c.id', comments.content AS 'c.content', comments.post_id AS 'c.post_id', comments.user_id AS 'c.user_id', comments.creation_time AS 'c.creation_time'", [["inner", "comments", "posts.id", "comments.post_id"]],[["posts.id", id]])
+    def self.get_specific_by_id(id)
+        get("posts.id AS 'p.id', posts.title AS 'p.title', posts.content AS 'p.content', posts.votes AS 'p.votes', posts.creation_time AS 'p.creation_time', posts.user_id AS 'p.user_id', comments.id AS 'c.id', comments.content AS 'c.content', comments.post_id AS 'c.post_id', comments.user_id AS 'c.user_id', comments.creation_time AS 'c.creation_time', comments.reply_to_id AS 'c.reply_to_id', poster.name AS 'p.name', poster.is_admin AS 'p.is_admin', commentor.name AS 'c.name', commentor.is_admin AS 'c.is_admin', tags.name AS 't.name'", [["left", "comments", "posts.id", "comments.post_id"], ["left", "users AS 'poster'", "posts.user_id", "poster.id"], ["left", "users AS 'commentor'", "comments.user_id", "commentor.id"], ["left", "taggings", "taggings.post_id", "posts.id"], ["left", "tags", "tags.id", "taggings.tag_id"]],[["posts.id", id]])
+    end
+    
+
+    def self.get_sorted_by_id(id)
+        data = get_specific_by_id(id)
+        tags = []
+        data.each do |x|
+            # break if !tags.include?(x["t.name"])              # breaks if tag already exists in list(might not work if the comments are sorted in some way)
+            tags << x["t.name"] if !tags.include?(x["t.name"])
+        end
+        if data[0]["c.id"] 
+            sorted = sort_comments(data, 0)
+            return sorted[0], sorted, tags
+        else
+            return data[0], [], tags
+        end
     end
 
 end
+
 class Taggings < DbHandler
-end
-
-# p Comments.get_all_for_post(2)
-p Posts.get_with_comments_by_id(7)
-
-def sort_comments(comments, ref_to_id)
-
-    comments.each_with_index do |comment, i|
-        
+    def self.add(tag_ids, post_id)
+        connect.transaction
+        tag_ids.each do |id|
+            insert({"post_id" => post_id, "tag_id" => id})
+        end
+        connect.commit
     end
-
 end
 
+
+
+
+
+# p Tags.get_all()
+# p Posts.get_last_id()

@@ -1,0 +1,11 @@
+== slim :'posts/partials/post_or_comment',
+    locals: {p_or_c: "c", data: comment}
+
+- if session[:user_id]
+    a href="/comments/new/#{comment['p.id']}/#{comment['c.id']}" comment
+
+
+div class="comment"
+    - comment["comments"].each do |x|
+        == slim :'posts/partials/comment', 
+            locals: {comment: x}

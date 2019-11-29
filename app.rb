@@ -15,11 +15,12 @@ class App < Sinatra::Base
 
 		
 		if !session[:user_id]
-			if path.include? "comments/new"
+			if path.include?("comments/new") || path.include?("posts/new")
 				redirect "/users/login"
 			end
 		end
 	end
+
 
 	
 
@@ -82,28 +83,34 @@ class App < Sinatra::Base
 	end
 
 	get "/posts/new" do
+		@tags = Tags.get_all()
 		slim :"posts/new"
 	end
 
 	post "/posts/new" do
 		title = params["Title"]
 		content = params["content"]
+
+		tags = params
+		tags.delete("Title")
+		tags.delete("content")
+		
+		tags = tags.map {|tag| tag[1]}
+
 		creation_time = Time.now.to_s
 		user_id = session[:user_id]
-		Posts.create(title, content, creation_time, user_id)
+		Posts.create(title, content, creation_time, user_id, tags)
 		redirect "/"
 	end
 
 	get "/posts/show/:id" do 
 		id = params["id"]
-		@post_data = Posts.get_with_comments_by_id(id)
 
-		@post = @post_data[0]
-
-
+		@post, @comments, @tags = Posts.get_sorted_by_id(id)
+   
 		slim :"posts/show"
-	end
-	
+	end 
+	  
 	get "/comments/new/:post_id/:comment_id" do
 		@post_id = params["post_id"]
 		@comment_id = params["comment_id"] 
@@ -113,8 +120,9 @@ class App < Sinatra::Base
 	
 	post "/comments/new/:post_id/:comment_id" do
 		post_id = params["post_id"]
-		comment_id = params["comment_id"] 
 		content = params["content"]
+		comment_id = params["comment_id"]
+
 
 		Comments.create(content, Time.now.to_s, session[:user_id], post_id, comment_id)
 		redirect "/posts/show/#{post_id}"

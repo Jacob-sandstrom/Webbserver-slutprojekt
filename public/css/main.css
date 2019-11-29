@@ -24,3 +24,15 @@ article{
     margin: 5px;
     text-decoration: none;
 }
+
+.comment{
+    margin: 10px;
+    margin-left: 20px;
+    padding: 5px;
+    border-left: 1px white solid;
+}
+
+.tagbox{
+    margin: 5px;
+    border: 1px white solid;
+}
