@@ -128,5 +128,11 @@ class App < Sinatra::Base
 		redirect "/posts/show/#{post_id}"
 
 	end
+
+	post "/votes/increase/:id" do
+
+	end
+
+	
 	
 end

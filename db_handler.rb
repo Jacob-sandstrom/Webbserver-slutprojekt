@@ -267,8 +267,14 @@ class Posts < DbHandler
     def self.sort_comments(comments, reply_to_id)
         sorted_comments = []
         remaining_comments = []
+        comment_ids = []
     
         comments.each_with_index do |comment, i|
+            if comment_ids.include?(comment["c.id"])
+                next
+            else
+                comment_ids << comment["c.id"]
+            end
             if comment["c.reply_to_id"] == reply_to_id
                 sorted_comments << comment   
             else
@@ -344,9 +350,49 @@ class Taggings < DbHandler
     end
 end
 
+class Votes < DbHandler
 
+    def self.change(post_id, user_id, score)
+
+        data = get("user_id, post_id", nil, [["post_id", post_id],["user_id", user_id]])
+        if data == []
+            insert({post_id: post_id, user_id:user_id, score: score})
+            p "insert"
+        else
+            p "update"
+            update({post_id: post_id, user_id:user_id, score: score}, [["post_id", post_id],["user_id", user_id]])
+        end
+
+    end
+
+    def self.increase(post_id, user_id)
+        change(post_id, user_id, 1)
+    end
+    
+    def self.decrease(post_id, user_id)
+        change(post_id, user_id, -1)
+    end
+    
+    def self.remove(post_id, user_id)
+        change(post_id, user_id, 0)
+    end
+
+    def self.get_score(post_id)
+        scores = get("score", nil, [["post_id", post_id]])
+        total_score = 0
+
+        scores.each do |score|
+            total_score += score["score"]
+        end
+
+        return total_score
+    end
+
+end
 
 
 
 # p Tags.get_all()
 # p Posts.get_last_id()
+
+# p Votes.get_score(1)
