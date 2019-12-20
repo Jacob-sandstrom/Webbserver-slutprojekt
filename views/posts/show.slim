@@ -1,6 +1,20 @@
 
 h1 =@post["p.title"]
 
+- if @is_admin == 1 || session[:user_id] == @post["p.user_id"]
+    == slim :'posts/partials/delete',
+        locals: {post_path: "/posts/delete/", id: @post['p.id']}
+
+
+h3 votes: #{@post["p.vote"]}
+
+- if session[:user_id]
+    == slim :'posts/partials/votebutton',
+        locals: {id: @post['p.id'], button_text: "upvote", value: 1}
+    == slim :'posts/partials/votebutton',
+        locals: {id: @post['p.id'], button_text: "downvote", value: -1}
+
+
 div class="tagbox"
     p tags: 
     - @tags.each do |tag|

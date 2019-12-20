@@ -168,4 +168,4 @@ class Seeder
 
 end
 
-Seeder.seed
+# Seeder.seed

@@ -1,8 +1,35 @@
 
+h1 posts
+- if @tag
+    h3 with tag: #{@tag}
+
+
+form action="/goto" method='post'
+    h3 sort:
+    input type="radio" name="sort" value="top" top
+    input type="radio" name="sort" value="newest" newest
+
+
+    h3 tag:
+    - @tags.each do |tag|
+        input class="tagbox" type="radio" name="tag" value="#{tag[0]}" #{tag[0]}
+
+    button type="submit" go
+
+
 - @posts.each do |post|
     article
-        a href="/posts/show/#{post['id']}" 
+        a href="/posts/show/#{post['p.id']}" 
             h1 =post["title"]
             div class="votebox"
-                h3 votes:
-                h3 =post["votes"]
+                h3 votes: #{post["vote"]}
+                - if session[:user_id]
+                    == slim :'posts/partials/votebutton',
+                        locals: {id: post['p.id'], button_text: "upvote", value: 1}
+                    == slim :'posts/partials/votebutton',
+                        locals: {id: post['p.id'], button_text: "downvote", value: -1}
+                h3 created at: #{post["creation_time"]}
+
+                - if @is_admin == 1 || session[:user_id] == post["user_id"]
+                    == slim :'posts/partials/delete',
+                        locals: {post_path: "/posts/delete/", id: post['p.id']}

@@ -3,8 +3,18 @@ require 'bcrypt'
 
 class DbHandler
 
+    def self.set_table_name(name)
+        @table_name = name
+    end
+
+    def self.fields(name)
+        @fields ||= []
+        @fields << name
+    end
+
+
     def self.connect
-        @db || @db = SQLite3::Database.new('db/db.db') 
+        @db ||= SQLite3::Database.new('db/db.db') 
         @db.results_as_hash = true
         return @db
         # d = @db.execute("select name from sqlite_master where type='table'")
@@ -103,7 +113,6 @@ class DbHandler
         # table = self.name.to_s.downcase 
         where_string, where_values = where(wheres)
         return connect.execute("SELECT #{select} FROM #{table} #{join(joins)} #{where_string} #{order(orders)} #{limits(limit)}", where_values)
-
     end
 
     # Creates sqlite strings and values from a hash that can later be used in an insert or update sqlite command
@@ -171,11 +180,19 @@ class DbHandler
         connect.execute("UPDATE #{table} SET #{columns} #{where_string}", values)
     end
 
-
-
-    def self.get_row_where(id1, id2)
-        get("*", nil, [[id1, id2]])[0]
+    def self.delete(wheres, table = self.name.to_s.downcase)
+        where_string, where_values = where(wheres)
+        connect.execute("DELETE FROM #{table} #{where_string}", where_values)
     end
+
+
+
+    # def self.get_row_where(id1, id2)
+    #     get("*", nil, [[id1, id2]])[0]
+    # end
+    # def self.get_by_id(id)
+    #     get_row_where("id", id)
+    # end
     
     def self.get_specific(select, id1, id2)
         val = get(select, nil, [[id1, id2]])
@@ -186,12 +203,23 @@ class DbHandler
         end
     end
 
-    def self.get_by_id(id)
-        get_row_where("id", id)
+    def self.get_where(select, id1, id2)
+        get(select, nil, [[id1, id2]])
     end
+
 end 
 
-class Users < DbHandler 
+class User < DbHandler 
+
+    # set_table_name "user"
+    # fields "id"       
+    # fields "name"           #, type: string, required: true
+    # fields "pwd_hash"       
+    # fields "creation_time"       
+    # fields "is_admin"       
+
+
+ 
 
     def self.get_id_from_name(username)
         get_specific("id", "name", username)
@@ -230,25 +258,31 @@ class Users < DbHandler
         else 
             return false
         end
-	end
+    end
+    
+    def self.delete_at(id)
+        delete([["id", id]])
+        delete([["user_id", id]], "post")
+        delete([["user_id", id]], "comment")
+    end
 
 end
-class Tags < DbHandler
+class Tag < DbHandler
 
     def self.get_all
-        tags = get("name, id")
-        tags.each_with_index do |tag, i|
+        tag = get("name, id")
+        tag.each_with_index do |tag, i|
             t = []
             tag.to_a.each do |x|
                 t << x[1]
             end
-            tags[i] = t
+            tag[i] = t
         end
-        return tags
+        return tag
     end
 
 end
-class Comments < DbHandler
+class Comment < DbHandler
 
     def self.get_all_for_post(id)
         get("*", nil, [["post_id", id]])
@@ -258,49 +292,92 @@ class Comments < DbHandler
         hash = {content: content, creation_time: creation_time, user_id: user_id, post_id: post_id, reply_to_id: reply_to_id}
         insert(hash)
     end
-    
+
+    def self.delete_at(id)
+        delete([["comment.id", id]])
+        delete([["reply_to_id", id]])
+    end
 
 end
 
-class Posts < DbHandler
+class Post < DbHandler
 
-    def self.sort_comments(comments, reply_to_id)
-        sorted_comments = []
-        remaining_comments = []
+
+
+
+    def self.join_tag
+        return [["inner", "tagging", "post.id", "tagging.post_id"], ["inner", "tag", "tagging.tag_id", "tag.id"]]
+    end
+
+    def self.sort_comment(comment, reply_to_id)
+        sorted_comment = []
+        remaining_comment = []
         comment_ids = []
     
-        comments.each_with_index do |comment, i|
+        comment.each_with_index do |comment, i|
             if comment_ids.include?(comment["c.id"])
                 next
             else
                 comment_ids << comment["c.id"]
             end
             if comment["c.reply_to_id"] == reply_to_id
-                sorted_comments << comment   
+                sorted_comment << comment   
             else
-                remaining_comments << comment
+                remaining_comment << comment
             end  
         end
     
-        sorted_comments.each_with_index do |comment, i|
-            comment["comments"] = sort_comments(remaining_comments, comment["c.id"])
+        sorted_comment.each_with_index do |comment, i|
+            comment["comment"] = sort_comment(remaining_comment, comment["c.id"])
         end
     
-        return sorted_comments
+        return sorted_comment
     end
 
     def self.top
-        get("*", nil, nil, [["votes", "DESC"]])
+        get("*", nil, nil, [["vote", "DESC"]])
     end
     def self.bottom
-        get("*", nil, nil, [["votes", "ASC"]])
+        get("*", nil, nil, [["vote", "ASC"]])
     end
+    def self.newest
+        get("*", nil, nil, [["id", "DESC"]])
+    end
+    def self.oldest
+        get("*", nil, nil, [["id", "ASC"]])
+    end
+    
+    def self.ordered(order_arr)
+        get("post.id AS 'p.id', post.title, post.content, post.vote, post.creation_time, post.user_id", nil, nil, order_arr)
+    end
+    
+    def self.with_tag(order_arr, tag)
+        get("post.id AS 'p.id', post.title, post.content, post.vote, post.creation_time, post.user_id, tag.name", join_tag, [["tag.name", tag]], order_arr)
+    end
+
+    def self.get_with_tag(order, tag)
+        order_arr = nil
+        case order
+        when "top"
+            order_arr = [["vote", "DESC"]]
+        when "newest"
+            order_arr = [["post.id", "DESC"]]
+        end
+
+        if tag
+            out = with_tag(order_arr, tag)
+        else
+            out = ordered(order_arr)
+        end
+
+    end
+    
 
     def self.get_last_id()
         get("id", nil, nil, [["id", "DESC"]], 1)[0]["id"]
     end
 
-    def self.create(title, content, creation_time, user_id, tags)
+    def self.create(title, content, creation_time, user_id, tag)
         hash = {title: title, content: content, creation_time: creation_time, user_id: user_id}
         
         connect.transaction
@@ -309,38 +386,48 @@ class Posts < DbHandler
         post_id = get_last_id()
         connect.commit
 
-        Taggings.add(tags, post_id)
+        Tagging.add(tag, post_id)
 
 
     end
 
-    def self.get_blank_with_tags_where(select, where1, where2)
-        get(select, [["inner", "taggings", "posts.id", "taggings.post_id"],["inner", "tags", "taggings.tag_id", "tags.id"]], [[where1, where2]])
+    def self.get_blank_with_tag_where(select, where1, where2)
+        get(select, [["inner", "tagging", "post.id", "tagging.post_id"],["inner", "tag", "tagging.tag_id", "tag.id"]], [[where1, where2]])
     end
 
     def self.get_specific_by_id(id)
-        get("posts.id AS 'p.id', posts.title AS 'p.title', posts.content AS 'p.content', posts.votes AS 'p.votes', posts.creation_time AS 'p.creation_time', posts.user_id AS 'p.user_id', comments.id AS 'c.id', comments.content AS 'c.content', comments.post_id AS 'c.post_id', comments.user_id AS 'c.user_id', comments.creation_time AS 'c.creation_time', comments.reply_to_id AS 'c.reply_to_id', poster.name AS 'p.name', poster.is_admin AS 'p.is_admin', commentor.name AS 'c.name', commentor.is_admin AS 'c.is_admin', tags.name AS 't.name'", [["left", "comments", "posts.id", "comments.post_id"], ["left", "users AS 'poster'", "posts.user_id", "poster.id"], ["left", "users AS 'commentor'", "comments.user_id", "commentor.id"], ["left", "taggings", "taggings.post_id", "posts.id"], ["left", "tags", "tags.id", "taggings.tag_id"]],[["posts.id", id]])
+        get("post.id AS 'p.id', post.title AS 'p.title', post.content AS 'p.content', post.vote AS 'p.vote', post.creation_time AS 'p.creation_time', post.user_id AS 'p.user_id', comment.id AS 'c.id', comment.content AS 'c.content', comment.post_id AS 'c.post_id', comment.user_id AS 'c.user_id', comment.creation_time AS 'c.creation_time', comment.reply_to_id AS 'c.reply_to_id', poster.name AS 'p.name', poster.is_admin AS 'p.is_admin', commentor.name AS 'c.name', commentor.is_admin AS 'c.is_admin', tag.name AS 't.name'", [["left", "comment", "post.id", "comment.post_id"], ["left", "user AS 'poster'", "post.user_id", "poster.id"], ["left", "user AS 'commentor'", "comment.user_id", "commentor.id"], ["left", "tagging", "tagging.post_id", "post.id"], ["left", "tag", "tag.id", "tagging.tag_id"]],[["post.id", id]])
     end
     
 
     def self.get_sorted_by_id(id)
         data = get_specific_by_id(id)
-        tags = []
+        tag = []
         data.each do |x|
-            # break if !tags.include?(x["t.name"])              # breaks if tag already exists in list(might not work if the comments are sorted in some way)
-            tags << x["t.name"] if !tags.include?(x["t.name"])
+            # break if !tag.include?(x["t.name"])              # breaks if tag already exists in list(might not work if the comment are sorted in some way)
+            tag << x["t.name"] if !tag.include?(x["t.name"])
         end
         if data[0]["c.id"] 
-            sorted = sort_comments(data, 0)
-            return sorted[0], sorted, tags
+            sorted = sort_comment(data, 0)
+            return sorted[0], sorted, tag
         else
-            return data[0], [], tags
+            return data[0], [], tag
         end
+    end
+
+    def self.set_score(id, score)
+        update({vote: score}, [["id", id]])
+    end
+
+    def self.delete_at(id)  
+        delete([["post.id", id]])
+        delete([["post_id", id]], "comment")
+        delete([["post_id", id]], "tagging")
     end
 
 end
 
-class Taggings < DbHandler
+class Tagging < DbHandler
     def self.add(tag_ids, post_id)
         connect.transaction
         tag_ids.each do |id|
@@ -350,17 +437,17 @@ class Taggings < DbHandler
     end
 end
 
-class Votes < DbHandler
+class Vote < DbHandler
 
     def self.change(post_id, user_id, score)
 
         data = get("user_id, post_id", nil, [["post_id", post_id],["user_id", user_id]])
         if data == []
-            insert({post_id: post_id, user_id:user_id, score: score})
+            insert({post_id: post_id, user_id: user_id, score: score})
             p "insert"
         else
             p "update"
-            update({post_id: post_id, user_id:user_id, score: score}, [["post_id", post_id],["user_id", user_id]])
+            update({post_id: post_id, user_id: user_id, score: score}, [["post_id", post_id],["user_id", user_id]])
         end
 
     end
@@ -392,7 +479,9 @@ end
 
 
 
-# p Tags.get_all()
-# p Posts.get_last_id()
+# p Tag.get_all()
+# p Post.get_last_id()
 
-# p Votes.get_score(1)
+# p Vote.get_score(1)
+
+# Post.delete_at(45)

@@ -18,6 +18,9 @@ html
                 a href="/users/logout" logout
                 a href="/posts/new" create post
 
+            - if @is_admin == 1
+                a href="/admin/users" users
+
         / h3 =@username
         == yield
-        footer © Forum 2019
+        footer © Forum 2019 
