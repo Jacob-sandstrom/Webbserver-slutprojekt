@@ -1,0 +1,37 @@
+
+h1 =@post.title
+
+- if @is_admin == 1 || session[:user_id] == @post.user_id
+    == slim :'post/partials/delete',
+        locals: {post_path: "/post/delete/", id: @post.id}
+
+
+h3 vote: #{@post.vote[0]}
+
+- if session[:user_id]
+    == slim :'post/partials/votebutton',
+        locals: {id: @post.id, button_text: "upvote", value: 1}
+    == slim :'post/partials/votebutton',
+        locals: {id: @post.id, button_text: "downvote", value: -1}
+
+
+div class="tagbox"
+    p tags: 
+    - @post.tag.each do |tag|
+        p =tag.name
+
+== slim :'post/partials/post_or_comment',
+    locals: {p_or_c: "poster", data: @post}
+
+
+- if session[:user_id]
+    a href="/comment/new/#{@post.id}/0" comment
+- else
+    a href="/user/login" login to comment
+    
+h2 comment
+
+- @post.comment.each do |comment|
+    p commment
+    == slim :'post/partials/comment', 
+        locals: {comment: comment}

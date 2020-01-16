@@ -9,17 +9,17 @@ html
             a href="/" Home
 
             - if !session[:user_id]
-                a href="/users/login" login
-                a href="/users/new" create account
+                a href="/user/login" login
+                a href="/user/new" create account
             - else
                 div class="usernamebox"
                     p logged in as: 
                     p =@username
-                a href="/users/logout" logout
-                a href="/posts/new" create post
+                a href="/user/logout" logout
+                a href="/post/new" create post
 
             - if @is_admin == 1
-                a href="/admin/users" users
+                a href="/admin/user" user
 
         / h3 =@username
         == yield

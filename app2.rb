@@ -12,12 +12,12 @@ class App < Sinatra::Base
 		p session
 		p "#########"
 		
-		@user_data = User.get_where("name, is_admin", "id", session[:user_id])
+		@user = User.fetch({id: session[:user_id]})
 		
 
-		if @user_data != []
-			@username = @user_data[0]["name"]
-			@is_admin = @user_data[0]["is_admin"]
+		if @user != []
+			@username = @user[0].name
+			@is_admin = @user[0].is_admin
 		end
 
 		
@@ -45,33 +45,30 @@ class App < Sinatra::Base
 	end
 	
 	get '/' do
-		@post = Post.get_with_tag("top", nil)
-		@tags = Tag.get_all()
+		@post = Post.fetch({}, {tag: nil}, [["vote", "DESC"]])
+		@tags = Tag.fetch({})
 		slim :index
 	end
 
-	# get '/:sort?/?:tag?/?' do
-	# 	@tag = params["tag"]
-	# 	@tags = Tag.get_all()
-	# 	if @tag
-	# 		@post = Post.with_tag(@tag, [["post.vote", "DESC"]])
-	# 	else
-	# 		@post = Post.top
-	# 	end
-	# 	slim :index
-	# end
-
 	get '/top/?:tag?' do
 		@tag = params["tag"]
-		@tags = Tag.get_all()
-		@post = Post.get_with_tag("top", @tag)
+		@tags = Tag.fetch({})
+        if @tag
+            @post = Post.fetch({:"tag.id" => @tag}, {tag: nil}, [["vote", "DESC"]])
+        else
+            @post = Post.fetch({}, {tag: nil}, [["vote", "DESC"]])
+        end
 		slim :index
 	end
 	
 	get '/newest/?:tag?' do
 		@tag = params["tag"]
-		@tags = Tag.get_all()
-		@post = Post.get_with_tag("newest", @tag)
+        @tags = Tag.fetch({})
+        if @tag
+            @post = Post.fetch({:"tag.id" => @tag}, {tag: nil}, [["post.id", "DESC"]])
+        else
+            @post = Post.fetch({}, {tag: nil}, [["post.id", "DESC"]])
+        end
 		slim :index
 	end
 
@@ -84,17 +81,17 @@ class App < Sinatra::Base
 	end
 	
 	post '/post/delete/' do
-		Post.delete_at(params["id"])
+		Post.remove({id: params["id"]})
 		redirect '/'
 	end
  
 	post '/comment/delete/' do
-		Comment.delete_at(params["id"])
+		Comment.remove({id: params["id"]})
 		redirect '/'
 	end
 
 	post '/user/delete/' do
-		User.delete_at(params["id"])
+		User.remove({id: params["id"]})
 		session.delete(:user_id) if params["id"].to_i == session[:user_id]
 		redirect '/'
 	end
@@ -107,16 +104,17 @@ class App < Sinatra::Base
 	post '/user/new' do
 		username = params["username"]
 		password = params["password"]
-		success = User.create_user(username, password)
-		login(User.get_id_from_name(username)) if success
+		user = User.create_user(username, password)
+		login(user.id) if user
 		
 		redirect "/user"
 	end
 
 	get "/user/?" do
 
-		if session[:user_id]
-			@username = User.get_specific("name", "id", session[:user_id])
+        if session[:user_id]
+            @user = User.fetch({id: session[:user_id]})[0]
+			@username = @user.name
 			@user_id = session[:user_id]
 			slim :"user/show"
 		else
@@ -136,14 +134,14 @@ class App < Sinatra::Base
 	post "/user/login" do 
 		username = params["username"]
 		password = params["password"]
-		success = User.auth_user(username, password)
-		login(User.get_id_from_name(username)) if success
+		user = User.auth_user(username, password)
+		login(user.id) if user
 
 		redirect "/user/"
 	end
 
 	get "/post/new" do
-		@tags = Tag.get_all()
+		@tags = Tag.fetch({})
 		slim :"post/new"
 	end
 
@@ -158,15 +156,17 @@ class App < Sinatra::Base
 		tags = tags.map {|tag| tag[1]}
 
 		creation_time = Time.now.to_s
-		user_id = session[:user_id]
-		Post.create(title, content, creation_time, user_id, tags)
+        user_id = session[:user_id]
+        post = Post.create({title: title, content: content, creation_time: creation_time, user_id: user_id})
+        Tagging.add(post.id, tags, user_id)
 		redirect "/"
 	end
 
 	get "/post/show/:id" do 
 		id = params["id"]
 
-		@post, @comment, @tags = Post.get_sorted_by_id(id)
+        @post = Post.fetch({"post.id" => id}, {tag: nil, comment: {user: nil}, user: nil})[0]
+        p @post
    
 		slim :"post/show"
 	end 
@@ -182,9 +182,9 @@ class App < Sinatra::Base
 		post_id = params["post_id"]
 		content = params["content"]
 		comment_id = params["comment_id"]
+        p content
 
-
-		Comment.create(content, Time.now.to_s, session[:user_id], post_id, comment_id)
+		Comment.create({content: content, creation_time: Time.now.to_s, user_id: session[:user_id], post_id: post_id, comment_id: comment_id})
 		redirect "/post/show/#{post_id}"
 
 	end
@@ -201,7 +201,7 @@ class App < Sinatra::Base
 	end
 
 	get "/admin/user/?" do
-		@user = User.get()
+		@user = User.fetch({})
 		slim :"admin/user"
 	end
 

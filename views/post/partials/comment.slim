@@ -1,0 +1,15 @@
+== slim :'post/partials/post_or_comment',
+    locals: {p_or_c: "c", data: comment}
+
+- if @is_admin == 1 || session[:user_id] == comment.user_id
+    == slim :'post/partials/delete',
+        locals: {post_path: "/comment/delete/", id: comment.id}
+
+- if session[:user_id]
+    a href="/comment/new/#{comment.post_id}/#{comment.id}" comment
+
+
+div class="comment"
+    - comment.comment.each do |x|
+        == slim :'post/partials/comment', 
+            locals: {comment: x}

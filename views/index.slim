@@ -1,5 +1,5 @@
 
-h1 posts
+h1 post
 - if @tag
     h3 with tag: #{@tag}
 
@@ -12,24 +12,24 @@ form action="/goto" method='post'
 
     h3 tag:
     - @tags.each do |tag|
-        input class="tagbox" type="radio" name="tag" value="#{tag[0]}" #{tag[0]}
+        input class="tagbox" type="radio" name="tag" value="#{tag.id}" #{tag.name}
 
     button type="submit" go
 
 
-- @posts.each do |post|
+- @post.each do |post|
     article
-        a href="/posts/show/#{post['p.id']}" 
-            h1 =post["title"]
+        a href="/post/show/#{post.id}" 
+            h1 =post.title
             div class="votebox"
-                h3 votes: #{post["vote"]}
+                h3 vote: #{post.vote[0]}
                 - if session[:user_id]
-                    == slim :'posts/partials/votebutton',
-                        locals: {id: post['p.id'], button_text: "upvote", value: 1}
-                    == slim :'posts/partials/votebutton',
-                        locals: {id: post['p.id'], button_text: "downvote", value: -1}
-                h3 created at: #{post["creation_time"]}
+                    == slim :'post/partials/votebutton',
+                        locals: {id: post.id, button_text: "upvote", value: 1}
+                    == slim :'post/partials/votebutton',
+                        locals: {id: post.id, button_text: "downvote", value: -1}
+                h3 created at: #{post.creation_time}
 
-                - if @is_admin == 1 || session[:user_id] == post["user_id"]
-                    == slim :'posts/partials/delete',
-                        locals: {post_path: "/posts/delete/", id: post['p.id']}
+                - if @is_admin == 1 || session[:user_id] == post.user_id
+                    == slim :'post/partials/delete',
+                        locals: {post_path: "/post/delete/", id: post.id}

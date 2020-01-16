@@ -1,9 +1,0 @@
-
-h1 Users: 
-
-- @users.each do |user|
-    .userbox
-        h3 id: #{user["id"]} name: #{user["name"]}    Creation_time: #{user["creation_time"]}    Is_admin: #{user["is_admin"]}
-        - if @is_admin == 1 
-            == slim :'posts/partials/delete',
-                locals: {post_path: "/users/delete/", id: user['id']}
