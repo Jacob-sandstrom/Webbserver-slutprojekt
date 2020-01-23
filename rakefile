@@ -1,10 +1,48 @@
+
 #rake run
-task :run do
+#rake debug
+#rake seed
+#rake test:unit
+# rake test:acceptances
+
+# task :seed do
+#   require "bundler"
+#   Bundler.require
+#   require_relative 'db/seeder'
+#   Seeder.seed!
+# end
+
+task :run do 
   sh 'bundle exec rerun --ignore "*.{slim,js,css}" "rackup --host 0.0.0.0"'
 end
 
-#rake debug
 task :debug do
   sh 'rackup'
 end
+
+namespace :test do
+  task :unit do
+    tests =  get_tests_sorted('./spec/unit/*_spec.rb')
+    tests.each do |test|
+      system("bundle exec 'ruby #{test}'")        
+    end
+  end
+
   
+end
+task :acceptance do
+  tests =  get_tests_sorted('./spec/acceptance/*_spec.rb')
+  tests.each do |test|
+    #Rake::Task["seed"].invoke #reset db before each test file is run
+    system("bundle exec 'ruby #{test}'")        
+  end
+end
+
+def get_tests_sorted(test_folder_path)
+  tests = Dir.glob(test_folder_path).sort_by do |a|
+    basename = File.basename(a)
+    splitted = basename.split("_")
+    splitted.first.to_i
+  end
+  return tests
+end

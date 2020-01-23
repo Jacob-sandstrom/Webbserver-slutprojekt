@@ -25,7 +25,7 @@ div class="tagbox"
 
 
 - if session[:user_id]
-    a href="/comment/new/#{@post.id}/0" comment
+    a href="/comment/new/#{@post.id}/0" id="new-comment" comment 
 - else
     a href="/user/login" login to comment
     

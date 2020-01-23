@@ -6,7 +6,7 @@
         locals: {post_path: "/comment/delete/", id: comment.id}
 
 - if session[:user_id]
-    a href="/comment/new/#{comment.post_id}/#{comment.id}" comment
+    a href="/comment/new/#{comment.post_id}/#{comment.id}" class="new-comment/#{comment.post_id}/#{comment.id}" comment 
 
 
 div class="comment"

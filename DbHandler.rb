@@ -11,9 +11,6 @@ class Hash
 end
 
 class DbHandler
-    
-    # attr_accessor :fields, :table_name, :has
-
     def initialize(hash)
         hash = hash.hash_keys_to_string(hash)
         @hash_fields = {}
@@ -37,12 +34,12 @@ class DbHandler
         @table_name = name
     end
 
+    # adds name to a hash representing to columns in the db
     def self.set_field(name)
         @fields ||= []
         @fields << name
     end
 
-    
     # ------------------------------------------------------- Getters
     def self.table_name
         @table_name
@@ -59,18 +56,16 @@ class DbHandler
     def self.aliases
         @aliases
     end
-
-    
     # ------------------------------------------------------ /Getters
-    # ------------------------------------------------------- Setters
-    # ------------------------------------------------------ /Setters
     
+    # connects to the database
     def self.connect()
         @db ||= SQLite3::Database.new('db/db.db') 
         @db.results_as_hash = true
         return @db
     end
 
+    # processess a select string so that the column names is table.columnname if everything is selected
     def self.process_select(select, joins)
         if select == "*" 
             select_str = ""
@@ -94,6 +89,7 @@ class DbHandler
         return select_str
     end
 
+    # processes a join array to join string
     def self.join(joins)
         if !joins
             return ""
@@ -110,6 +106,13 @@ class DbHandler
         end
     end
 
+    # processess a hash to a where array
+    #
+    # - hash {where this: equals this, and this: equals this}
+    #
+    # examples
+    #   hash_to_wheres({where this: equals this, and this: equals this})
+    # =>[[where this, equals this], [and this, equals this]]
     def self.hash_to_wheres(hash)
         wheres = []
         hash.each do |ha|
@@ -118,6 +121,7 @@ class DbHandler
         wheres
     end
 
+    # processess a where array to a where string
     def self.where(wheres)
         if !wheres || wheres == []
             return ""
@@ -133,6 +137,7 @@ class DbHandler
         end
     end
 
+    # processess an order array into an order string
     def self.order(orders)
         if !orders
             return ""
@@ -147,6 +152,7 @@ class DbHandler
         end 
     end
 
+    # takes an integer and returns " Limit #{integer}"
     def self.limits(limit)
         if limit
             return " Limit #{limit}"
@@ -155,13 +161,32 @@ class DbHandler
         end
     end 
     
+    # gets data from the db
+    #
+    # - select  a string containing the values to select
+    # - joins   an array of things to join: [[join type, table, join on this, equal to this]]
+    # - wheres  an array of where values:   [[where this, equals this], [and this, equals this]]
+    # - orders  an array of order values:   [[column, direction]]
+    # - limit   an integer
+    # - table   the table
+    #
+    # returns the data
     def self.get(select = "*", joins = nil, wheres = nil, orders = nil, limit = nil, table = @table_name)   
         where_string, where_values = where(wheres)
-        p "SELECT #{process_select(select, joins)} FROM #{table} #{join(joins)} #{where_string} #{order(orders)} #{limits(limit)}"
+        # p "SELECT #{process_select(select, joins)} FROM #{table} #{join(joins)} #{where_string} #{order(orders)} #{limits(limit)}"
         # p where_values
         return connect.execute("SELECT #{process_select(select, joins)} FROM #{table} #{join(joins)} #{where_string} #{order(orders)} #{limits(limit)}", where_values)
     end
 
+    # slits a hash into the necessary components of an insert or update sql statement
+    #
+    # - hash a hash where the key is the column in the table and the value is the value to be set to that column
+    #
+    # examples
+    #    split_hash_to_sqlite_stuff({title: "woweee", content: "eeewow"}, "insert")
+    # => ["?,?", "title = ?, content = ?", ["wowee", "eewow"]]
+    #
+    # returns an array containing the parts of an insert
     def self.split_hash_to_sqlite_stuff(hash, type = "insert")
         inputs = "?"
         columns = []
@@ -189,16 +214,18 @@ class DbHandler
         
     end
 
+    # inserts values contained in a hash into a table creating a new row
+    #
+    # - hash    a hash where the key is the column in the table and the value is the value to be set to that column
     def self.insert(hash, table = @table_name)
         inputs, columns, values = split_hash_to_sqlite_stuff(hash, "insert")
         connect.execute("INSERT INTO #{table} (#{columns}) VALUES(#{inputs})", values)
     end
-
-    
+ 
     # updates a row in a table from the values in a hash
     #
     # - hash    a hash where the key is the column in the table and the value is the value to be set to that column
-    # - wheres  an array of arrays which contains the parameters of a where statement
+    # - wheres  an array of arrays which contains the parameters of a where statement [[where_this, equals_this], [and this, equals this]]
     # - table   the table to update
     #
     # returns nothing but edits the db
@@ -209,6 +236,10 @@ class DbHandler
         
         connect.execute("UPDATE #{table} SET #{columns} #{where_string}", values)
     end
+
+    # deletes row where condition is true
+    #
+    # - wheres  [[where_this, equals_this], [and this, equals this]]
     def self.delete(wheres, table = self.name.to_s.downcase)
         where_string, where_values = where(wheres)
         connect.execute("DELETE FROM #{table} #{where_string}", where_values)
@@ -216,6 +247,8 @@ class DbHandler
     def self.get_last_id()
         get("#{self.name.to_s.downcase}.id", nil, nil, [["id", "DESC"]], 1)[0]["id"]
     end
+
+    # saves an instances information to the db
     def save_to_db()
         self.class.connect.transaction
         self.class.insert(@hash_fields)
@@ -224,16 +257,20 @@ class DbHandler
 
         @hash_fields["id"] = @id
     end
+
+    # creates an instance of a class from a hash containing all values necessary to fill a row in the db
     def self.create(hash)
         instance = self.new(hash)
         instance.save_to_db()
         # instance.create_attr_accessors()
         return instance
     end
-    def self.fetch_by_id(id, has_hash={})
-        data = get("*", nil, [["id", id]])[0]
-        instance = self.new(data)
-    end
+
+    # processess the has_hash
+    #
+    # - has_hash    a hash containing the tables to join 
+    #
+    # returns the joins in the format [[join type, table, join on this, equal to this]]
     def self.process_has_hash_to_joins(has_hash)
         joins = []
         has_hash.keys.each do |key|
@@ -247,6 +284,14 @@ class DbHandler
         end
         return joins
     end
+
+    # creates instances of the data from the db
+    #
+    # - data             an array of hashes 
+    # - has_hash         a hash containing the tables to join 
+    # - caller_class     the name of the class that called the function
+    #
+    # returns an array of instances 
     def self.process_data(data, has_hash, caller_class)
         reshaped_data = []
         data.each do |row|
@@ -268,8 +313,6 @@ class DbHandler
         end
         
         instances = reshaped_data.uniq { |specific| [specific["id"]] }.map {|dat| self.new(dat)}
-        p "########################"
-        p "########################"
         
         instances.each_with_index do |instance, index|
             id = instance.id
@@ -287,12 +330,14 @@ class DbHandler
             end
         end
  
-        # puts "####################" if self.name.to_s.downcase == "user" 
-        # p instances if self.name.to_s.downcase == "user" 
         instances = [] if instances == [nil]
         return instances
     end
 
+    # gets and creates instances of a class 
+    #
+    # - where_hash  {where this: equals this, and this: equals this}
+    # - hash_hash   a hash containing the tables to join 
     def self.fetch(where_hash, has_hash={}, orders = nil, limit = nil)
         wheres = hash_to_wheres(where_hash)
         joins = process_has_hash_to_joins(has_hash)
@@ -301,6 +346,7 @@ class DbHandler
         return instances
     end
 
+    # removes rows from the db 
     def self.remove(where_hash)
         delete([["#{self.name.to_s.downcase}.#{where_hash.keys[0]}", where_hash[where_hash.keys[0]]]])
         @dependencies.each do |dependency|
@@ -308,6 +354,9 @@ class DbHandler
         end
     end
     
+    # creates several arrays making it easier to joins things later     one to many relationship
+    #
+    # - as  an alias for the table
     def self.has_many(table, as=nil)
         @has ||= []
         @has << table
@@ -316,7 +365,7 @@ class DbHandler
         @has_joins ||= {}
         @aliases ||= {}
         @aliases[table] = as
-
+        
         if as
             @has_joins[table] = ["left", table, "#{self.to_s.downcase}.id", "#{as}.#{self.to_s.downcase}_id", as]
         else
@@ -324,6 +373,7 @@ class DbHandler
         end
     end
     
+    # creates several arrays making it easier to joins things later     many to many relationship
     def self.many_many(table, intermediate)
         @has ||= []
         @has << table
@@ -334,6 +384,9 @@ class DbHandler
         @has_joins[table] = [["left", intermediate, "#{self.to_s.downcase}.id", "#{intermediate}.#{self.to_s.downcase}_id"], ["left", table, "#{intermediate}.#{table}_id", "#{table}.id"]]
     end
     
+    # creates several arrays making it easier to joins things later     many to one relationship
+    #
+    # - as  an alias for the table
     def self.has_one(table, as=nil)
         @has ||= []
         @has << table
@@ -348,19 +401,6 @@ class DbHandler
         end
     end
 
-    # def self.belongs_to(table, as=nil)
-    #     @belongs ||=[]
-    #     @belong_join ||= {}
-
-    #     if as
-    #         @belongs << {as: table} 
-    #         @belong_join[as] = ["left", table, "#{self.to_s.downcase}.id", "#{as}.#{self.to_s.downcase}_id"]
-    #     else
-    #         @belongs << {table: table}
-    #         @belong_join[as] = ["left", table, "#{self.to_s.downcase}.id", "#{table}.#{self.to_s.downcase}_id"]
-    #     end
-
-    # end
 end
 
 
@@ -379,26 +419,28 @@ class User < DbHandler
     has_many "vote"
     many_many "tags", "tagging"
     
+    # creates a user if one with the same name doesn't already exist 
+    #
+    # returns the created user as an instance
     def self.create_user(username, password)
         u = self.fetch({name: username})[0]
         return nil if u 
         
         hashed = BCrypt::Password.create(password)
-        # add_user_to_db(username, hashed)
         user = create({name: username, pwd_hash: hashed, creation_time: Time.now.to_s})
         return user
     end
     
+    # authenticates if username and password is correct
+    #
+    # returns an instance of user on success else returns nil 
     def self.auth_user(username, password)
         u = self.fetch({name: username})[0]
-        p u
-        p "###############"
-        p "###############"
 		return false if u == nil
         
 		db_hash = BCrypt::Password.new(u.pwd_hash)
         success = db_hash == password
-		
+        
 		if success
 			return u
         else 
@@ -429,6 +471,7 @@ class Post < DbHandler
         @vote << Vote.get_score(self.id)
     end
 
+    # sets the vote in db to a value
     def self.set_score(id, score)
         update({vote: score}, [["id", id]])
     end
@@ -449,6 +492,10 @@ class Comment < DbHandler
 
     # belongs_to "user", as: "commentor"
 
+    # organizes comments so that comments on comments get put inside those comments
+    #
+    # - comments    an array instances of the class Comment
+    # - commet_id   the id the comment belongs to
     def self.organize(comments, comment_id)
         sorted_comments = []
         remaining_comments = []
@@ -486,6 +533,7 @@ class Tagging < DbHandler
     set_field "post_id"
     set_field "tag_id"
     
+    # creates a row in the tagging table
     def self.add(post_id, tag_ids, user_id)
         connect.transaction
         tag_ids.each do |id|
@@ -503,7 +551,7 @@ class Vote < DbHandler
     set_field "post_id"
     set_field "score"
 
-
+    # changes the vote for a specific user on a specific post
     def self.change(post_id, user_id, score)
         data = get("user_id, post_id", nil, [["post_id", post_id],["user_id", user_id]])
         if data == []
@@ -512,7 +560,6 @@ class Vote < DbHandler
             update({post_id: post_id, user_id: user_id, score: score}, [["post_id", post_id],["user_id", user_id]])
         end
     end
-
     def self.get_score(post_id)
         scores = get("score", nil, [["post_id", post_id]])
         total_score = 0
@@ -524,6 +571,3 @@ class Vote < DbHandler
     end
 
 end
-
-u = User.fetch({"user.id" => 2}, {post: {comment: {user: nil}, tag: nil}})
-p u
