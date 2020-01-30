@@ -10,6 +10,7 @@ class Hash
     end
 end
 
+
 class DbHandler
     def initialize(hash)
         hash = hash.hash_keys_to_string(hash)
