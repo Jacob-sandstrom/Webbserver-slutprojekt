@@ -1,7 +1,7 @@
 GEM
   remote: https://rubygems.org/
   specs:
-    addressable (2.7.0)
+    addressable (2.8.0)
       public_suffix (>= 2.0.2, < 5.0)
     ansi (1.5.0)
     bcrypt (3.1.13)
@@ -16,6 +16,7 @@ GEM
       regexp_parser (~> 1.5)
       xpath (~> 3.2)
     childprocess (3.0.0)
+    ffi (1.11.1)
     ffi (1.11.1-x64-mingw32)
     listen (3.2.0)
       rb-fsevent (~> 0.10, >= 0.10.3)
@@ -29,9 +30,11 @@ GEM
       minitest (>= 5.0)
       ruby-progressbar
     mustermann (1.0.3)
+    nokogiri (1.10.7)
+      mini_portile2 (~> 2.4.0)
     nokogiri (1.10.7-x64-mingw32)
       mini_portile2 (~> 2.4.0)
-    public_suffix (4.0.3)
+    public_suffix (4.0.6)
     rack (2.0.7)
     rack-protection (2.0.7)
       rack
@@ -63,6 +66,7 @@ GEM
       nokogiri (~> 1.8)
 
 PLATFORMS
+  ruby
   x64-mingw32
 
 DEPENDENCIES
